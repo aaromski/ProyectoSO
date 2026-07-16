@@ -5,8 +5,6 @@
 
 /* ================================================================
    NOMBRES DE LOS EVENTOS DE WINDOWS PARA COORDINARSE CON EL BROKER
-   NOTA: estos dos nombres deben agregarse tambien a config.h y el
-   broker debe crear/escuchar estos mismos eventos (ver README abajo).
    ================================================================ */
 #define EVENT_SHUTDOWN_NAME "BrokerShutdownEvent"
 #define EVENT_DEBUG_NAME    "BrokerDebugDumpEvent"
@@ -35,8 +33,6 @@ static void Log(const char* msg) {
 
 /* ================================================================
    CONEXION A LA MEMORIA COMPARTIDA CREADA POR EL BROKER
-   El monitor NO crea el File Mapping, solo lo abre.
-   Reintenta cada segundo por si el broker aun no ha arrancado.
    ================================================================ */
 
 static BOOL ConnectToSharedMemory(void) {
@@ -49,7 +45,7 @@ static BOOL ConnectToSharedMemory(void) {
     }
 
     if (!g_hMapFile) {
-        Log("ERROR: no se pudo abrir la memoria compartida. ¿Esta el broker corriendo?");
+        Log("ERROR: no se pudo abrir la memoria compartida. Â¿Esta el broker corriendo?");
         return FALSE;
     }
 
@@ -68,9 +64,6 @@ static BOOL ConnectToSharedMemory(void) {
 
 /* ================================================================
    EVENTOS DE WINDOWS PARA COORDINARSE CON EL BROKER
-   CreateEvent con un nombre: si el broker ya lo creo, esto simplemente
-   abre el mismo objeto (Windows lo identifica por nombre, no importa
-   quien lo creo primero).
    ================================================================ */
 
 static BOOL InitEvents(void) {
@@ -110,7 +103,7 @@ static void PrintStats(void) {
 }
 
 /* ================================================================
-   CTRL+C: SALIR DEL MONITOR (esto NO apaga el broker, solo tu consola)
+   CTRL+C: SALIR DEL MONITOR 
    ================================================================ */
 
 static BOOL WINAPI ConsoleHandler(DWORD event) {
