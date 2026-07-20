@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 /******************************************************************************
  * NOMBRE: Angie Urrieta
  * PROYECTO: Sistema de Telemetría y Control Concurrente (Fórmula 1) - MÓDULO 1
@@ -220,13 +220,3 @@ int main(int argc, char* argv[]) {
     printf("[Sensor] Finalizado correctamente.\n");
     return 0;
 }
-=======
-#include <windows.h>
-#include <stdio.h>
-#include "common.h"
-
-int main(void) {
-    printf("Modulo limpio. Listo para desarrollo.\n");
-    return 0;
-}
->>>>>>> fc38d37d5de5ff39abd19209e4112e133cde9075

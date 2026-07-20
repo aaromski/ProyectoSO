@@ -1,3 +1,13 @@
+/******************************************************************************
+ * NOMBRE: Aarom Luces
+ * PROYECTO: Sistema de Telemetría y Control Concurrente (Fórmula 1) - MÓDULO 2
+ * DESCRIPCIÓN: Núcleo receptor e ingestor central. Gestiona conexiones
+ *              entrantes de sensores mediante Named Pipes distribuidos en hilos
+ *              dedicados (CreateThread) y deposita los eventos en un Buffer
+ *              Circular en Memoria Compartida protegido por Semáforos y Mutex.
+ * FECHA: 12 de julio de 2026
+ *****************************************************************************/
+
 #include <windows.h>
 #include <stdio.h>
 #include "common.h"

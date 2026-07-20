@@ -1,3 +1,13 @@
+/******************************************************************************
+ * NOMBRE: Lisbelis Yemes
+ * PROYECTO: Sistema de Telemetría y Control Concurrente (Fórmula 1) - MÓDULO 4
+ * DESCRIPCIÓN: Consola de administración e interfaz gráfica/texto en tiempo real.
+ *              Abre el mapeo de memoria compartida para auditar estadísticas de
+ *              rendimiento del sistema y se coordina con el Broker mediante
+ *              Eventos de Windows (CreateEvent) para el protocolo de apagado.
+ * FECHA: 16 de julio de 2026
+ *****************************************************************************/
+
 #include <windows.h>
 #include <conio.h>
 #include <stdio.h>
