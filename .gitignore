@@ -1,5 +1,18 @@
-.vs/
-*.exe
+# Archivos de compilación y binarios
+*.o
 *.obj
-*.ipch
-*.db
+*.exe
+*.log
+
+# Carpetas de compilación
+x64/
+[Dd]ebug/
+[Rr]elease/
+ProyectoSO/x64/
+
+# Archivos de solución y proyecto de Visual Studio
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+.vs/
