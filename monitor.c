@@ -101,6 +101,7 @@ static void PrintStats(void) {
     LONG activos = g_pHeader->activeSensors;
     LONG ocupados = g_pBuffer->count;
     long capacidad = g_pBuffer->maxSize;
+    LONG procesados = g_pHeader->processedEvents;
     double pct = capacidad > 0 ? (100.0 * ocupados / capacidad) : 0.0;
 
     /* Limpia la pantalla para que se vea como un dashboard en vivo */
@@ -108,6 +109,7 @@ static void PrintStats(void) {
     printf("=== DASHBOARD DE TELEMETRIA (Modulo 4) ===\n\n");
     printf("Sensores activos      : %ld\n", activos);
     printf("Ocupacion del buffer  : %ld / %ld  (%.1f%%)\n", ocupados, capacidad, pct);
+    printf("Eventos procesados    : %ld\n", procesados);
     printf("Broker en ejecucion   : %s\n", g_pHeader->running ? "SI" : "NO");
     printf("\nControles: [Q] salir  [D] pedir volcado debug  [S] apagar sistema\n");
 }

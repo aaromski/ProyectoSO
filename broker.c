@@ -74,6 +74,7 @@ static BOOL InitSharedMemory(void) {
     g_pHeader->bufferMaxSize = BUFFER_SIZE;
     g_pHeader->activeSensors = 0;
     g_pHeader->running = 1;
+    g_pHeader->processedEvents = 0;
 
     g_pBuffer = (CircularBuffer*)((char*)g_pMem + sizeof(SharedHeader));
     g_pBuffer->head = 0;

@@ -28,6 +28,7 @@ typedef struct {
 // Declaracion global de Handles para que los Workers puedan acceder a ellos
 HANDLE hLogFile = INVALID_HANDLE_VALUE; // Handle del archivo de persistencia compartida
 HANDLE hIOCP = INVALID_HANDLE_VALUE;    // Handle del puerto de finalizacion (cola de tareas)
+SharedHeader* g_pHeader = NULL;         // Puntero al encabezado de memoria compartida
 
 // Funcion que ejecutan los hilos trabajadores (Workers) del Pool
 DWORD WINAPI WorkerThread(LPVOID lpParam) {
@@ -79,8 +80,8 @@ DWORD WINAPI WorkerThread(LPVOID lpParam) {
                 
                 // Formateamos los datos del evento junto con su nivel de prioridad calculado
                 int len = snprintf(logBuffer, sizeof(logBuffer),
-                    "[PRIO: %d] ID: %s | Time: %s | Type: %d | Val: %.2f\n",
-                    work->priority, work->event.sensorId, work->event.timestamp,
+                    "[PRIO: %d] EventID: %ld | ID: %s | Time: %s | Type: %d | Val: %.2f\n",
+                    work->priority, work->event.eventId, work->event.sensorId, work->event.timestamp,
                     work->event.eventType, work->event.value);
 
                 DWORD bytesWritten;           // Variable para recibir el conteo de bytes escritos
@@ -89,6 +90,10 @@ DWORD WINAPI WorkerThread(LPVOID lpParam) {
 
                 // Liberamos el bloqueo de forma inmediata para que otros Workers puedan escribir
                 UnlockFileEx(hLogFile, 0, 1, 0, &ovLock);
+                
+                if (g_pHeader) {
+                    InterlockedIncrement(&g_pHeader->processedEvents);
+                }
                 
                 // Mostramos en la consola del dispatcher el procesamiento en tiempo real
                 printf("[Worker %u] Evento de %s procesado (Prio: %d)\n", 
@@ -137,6 +142,7 @@ int main(void) {
     // Mapeamos las cabeceras y el bufer circular usando aritmetica de punteros en base al common.h
     SharedHeader* header = (SharedHeader*)pBuf;
     CircularBuffer* cb = (CircularBuffer*)((char*)pBuf + sizeof(SharedHeader));
+    g_pHeader = header;
 
     // --- 2. APERTURA DE OBJETOS DE SINCRONIZACION GLOBALES ---
     

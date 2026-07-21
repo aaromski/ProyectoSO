@@ -9,6 +9,7 @@ typedef struct {
     char   timestamp[TIMESTAMP_LEN];
     int    eventType;
     double value;
+    long   eventId;
 } Event;
 
 typedef struct {
@@ -24,6 +25,7 @@ typedef struct {
     long          bufferMaxSize;
     volatile LONG activeSensors;
     volatile LONG running;
+    volatile LONG processedEvents;
 } SharedHeader;
 
 #define SHM_SIZE (sizeof(SharedHeader) + sizeof(CircularBuffer))
