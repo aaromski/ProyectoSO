@@ -7,13 +7,13 @@ Este sistema implementa una arquitectura distribuida y concurrente en C para la 
     Secuencia de Arranque Obligatoria
 Para garantizar que los recursos de memoria y los semáforos se creen y abran en el orden correcto, los módulos deben ejecutarse estrictamente en la siguiente secuencia:
 
-broker.exe (Módulo 1 - Servidor Principal): Debe iniciarse primero, ya que es el encargado de reservar la memoria compartida (SharedHeader y CircularBuffer), el Mutex y los Semáforos (SemEmpty y SemFull), además de abrir la tubería con nombre (SensorPipe).
+broker.exe (Módulo 2 - Ingestor Central / Servidor Principal): Debe iniciarse en primer lugar. Es el responsable de crear y reservar la memoria compartida (SharedHeader y CircularBuffer), inicializar el Mutex global y los Semáforos (SemEmpty y SemFull), y abrir la tubería con nombre (SensorPipe). 
 
-dispatcher.exe (Módulo 3 - Procesamiento): Se inicia segundo para abrir los handles de la memoria compartida y los semáforos creados por el Broker, quedando a la espera activa-pasiva de eventos para el pool de hilos trabajadores.
+dispatcher.exe (Módulo 3 - Distribuidor y Procesamiento): Se inicia en segundo lugar. Abre los handles de la memoria compartida y los semáforos creados previamente por el Broker, quedando en bloqueo pasivo a la espera de eventos para ser procesados por el pool de hilos workers. 
 
-monitor.exe (Módulo 4 - Interfaz de Visualización): Se inicia tercero para conectarse al sistema y quedar listo para mostrar las alertas e informes procesados.
+monitor.exe (Módulo 4 - Dashboard de Control): Se inicia en tercer lugar. Se conecta a la memoria compartida (OpenFileMapping / MapViewOfFile) para visualizar las métricas del sistema en tiempo real y coordinar eventos de control.  
 
-sensor.exe (Módulo 2 - Clientes de Telemetría): Se ejecutan al final. Pueden abrirse múltiples instancias en paralelo para simular el envío de ráfagas de datos hacia la tubería.
+sensor.exe (Módulo 1 - Subsistema de Sensores): Se ejecutan al final. Pueden abrirse múltiples instancias en paralelo (procesos independientes) para simular el envío de ráfagas masivas de datos hacia la tubería.
 
     Arquitectura del Sistema
 El flujo de información está diseñado para evitar la espera activa y garantizar exclusión mutua mediante:
@@ -29,9 +29,9 @@ Operaciones Atómicas: Uso de InterlockedIncrement e InterlockedDecrement para e
     👥 Equipo de Desarrollo
 La estructura y los módulos del proyecto fueron desarrollados por:
 
-Aarom Luces: Desarrollo del Módulo 1 (Broker).
+Angie Urrieta: Desarrollo del Módulo 1 (Sensores).
 
-Angie Urrieta: Desarrollo del Módulo 2 (Sensores).
+Aarom Luces: Desarrollo del Módulo 2 (Broker).
 
 Miguel Rivas: Desarrollo del Módulo 3 (Dispatcher).
 
