@@ -48,14 +48,14 @@ static void ObtenerTimestamp(char* buffer, int tamaño) {
 }
 
 /* ================================================================
-   FUNCIÓN: Generar valor aleatorio (payload)
+   FUNCION: Generar valor aleatorio (payload)
    ================================================================ */
 static double GenerarValor(void) {
     return (rand() % 1000) / 10.0;  // 0.0 a 99.9
 }
 
 /* ================================================================
-   FUNCIÓN: Generar tipo de evento aleatorio
+   FUNCION: Generar tipo de evento aleatorio
    ================================================================ */
 static int GenerarTipoEvento(void) {
     return (rand() % 3) + 1;  // 1: Motor, 2: Frenos, 3: GPS
@@ -77,7 +77,7 @@ static BOOL ConectarAlBroker(void) {
 
     if (g_hPipe == INVALID_HANDLE_VALUE) {
         printf("[Sensor] ERROR: No se pudo conectar al Broker.\n");
-        printf("[Sensor] Asegúrate de que broker.exe esté ejecutándose.\n");
+        printf("[Sensor] Asegúrate de que broker.exe esté ejecutandose.\n");
         return FALSE;
     }
 
@@ -112,7 +112,7 @@ static void LimpiarRecursos(void) {
 }
 
 /* ================================================================
-   MANEJADOR DE Ctrl+C (CIERRE ORDENADO)
+   MANEJADOR DE (CIERRE ORDENADO)
    ================================================================ */
 static BOOL WINAPI ManejadorCtrl(DWORD evento) {
     if (evento == CTRL_C_EVENT || evento == CTRL_BREAK_EVENT) {
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
     }
 
     printf("============================================================\n");
-    printf(" SENSOR DE TELEMETRÍA - MÓDULO 1\n");
+    printf(" SENSOR DE TELEMETRIA - MODULO 1\n");
     printf(" Nombre: Angie Urrieta\n");
     printf(" ID del Sensor: %s\n", sensorId);
     printf("============================================================\n\n");
@@ -204,7 +204,7 @@ int main(int argc, char* argv[]) {
 
         // Enviar por Named Pipe (bloqueante)
         if (!EnviarEvento(&evento)) {
-            printf("[Sensor] Error en envío. Cerrando...\n");
+            printf("[Sensor] Error en envio. Cerrando...\n");
             break;
         }
 
