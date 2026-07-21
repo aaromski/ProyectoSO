@@ -11,23 +11,33 @@
 #include <windows.h>
 #include <stdio.h>
 #include "common.h"
+#include "config.h"
+
+ /* Eventos de comunicación con Módulo 4 (Monitor) */
+#define EVENT_SHUTDOWN_NAME "BrokerShutdownEvent"
+#define EVENT_DEBUG_NAME    "BrokerDebugDumpEvent"
 
 /* ================================================================
    VARIABLES GLOBALES DEL BROKER
    ================================================================ */
 
-static HANDLE          g_hMapFile  = NULL;
-static LPVOID          g_pMem      = NULL;
-static SharedHeader*   g_pHeader   = NULL;
-static CircularBuffer* g_pBuffer   = NULL;
+static HANDLE          g_hMapFile = NULL;
+static LPVOID          g_pMem = NULL;
+static SharedHeader* g_pHeader = NULL;
+static CircularBuffer* g_pBuffer = NULL;
 
-static HANDLE          g_hMutex    = NULL;
+static HANDLE          g_hMutex = NULL;
 static HANDLE          g_hSemEmpty = NULL;
-static HANDLE          g_hSemFull  = NULL;
+static HANDLE          g_hSemFull = NULL;
+
+/* Handles para el Monitor (Módulo 4) */
+static HANDLE          g_hEvtShutdown = NULL;
+static HANDLE          g_hEvtDebug = NULL;
+static HANDLE          g_hMonitorThread = NULL;
 
 static HANDLE          g_hThreads[MAX_CLIENTS];
 static HANDLE          g_hPipes[MAX_CLIENTS];
-static volatile LONG   g_Running     = 1;
+static volatile LONG   g_Running = 1;
 static volatile LONG   g_SensorCount = 0;
 
 /* ================================================================
@@ -37,6 +47,9 @@ static volatile LONG   g_SensorCount = 0;
 static void Log(const char* msg) {
     printf("[Broker] %s\n", msg);
 }
+
+/* Declaración anticipada */
+static DWORD WINAPI ShutdownThread(LPVOID lpParam);
 
 /* ================================================================
    INICIALIZACION: MEMORIA COMPARTIDA (FILE MAPPING)
@@ -57,15 +70,15 @@ static BOOL InitSharedMemory(void) {
     }
 
     g_pHeader = (SharedHeader*)g_pMem;
-    g_pHeader->bufferOffset  = sizeof(SharedHeader);
+    g_pHeader->bufferOffset = sizeof(SharedHeader);
     g_pHeader->bufferMaxSize = BUFFER_SIZE;
     g_pHeader->activeSensors = 0;
-    g_pHeader->running       = 1;
+    g_pHeader->running = 1;
 
     g_pBuffer = (CircularBuffer*)((char*)g_pMem + sizeof(SharedHeader));
-    g_pBuffer->head    = 0;
-    g_pBuffer->tail    = 0;
-    g_pBuffer->count   = 0;
+    g_pBuffer->head = 0;
+    g_pBuffer->tail = 0;
+    g_pBuffer->count = 0;
     g_pBuffer->maxSize = BUFFER_SIZE;
 
     Log("Memoria compartida inicializada");
@@ -73,7 +86,7 @@ static BOOL InitSharedMemory(void) {
 }
 
 /* ================================================================
-   INICIALIZACION: OBJETOS DE SINCRONIZACION
+   INICIALIZACION: OBJETOS DE SINCRONIZACION Y EVENTOS
    ================================================================ */
 
 static BOOL InitSyncObjects(void) {
@@ -95,8 +108,62 @@ static BOOL InitSyncObjects(void) {
         return FALSE;
     }
 
-    Log("Objetos de sincronizacion creados");
+    /* Eventos para el Módulo 4 */
+    g_hEvtShutdown = CreateEventA(NULL, TRUE, FALSE, EVENT_SHUTDOWN_NAME);
+    g_hEvtDebug = CreateEventA(NULL, TRUE, FALSE, EVENT_DEBUG_NAME);
+
+    if (!g_hEvtShutdown || !g_hEvtDebug) {
+        Log("ERROR: Fallo al crear Eventos de sincronizacion");
+        return FALSE;
+    }
+
+    Log("Objetos de sincronizacion y eventos creados");
     return TRUE;
+}
+
+/* ================================================================
+   VOLCADO DE DEPURACION (DEBUG DUMP)
+   ================================================================ */
+
+static void DumpDebugInfo(void) {
+    char buf[128];
+    Log("--- VOLCADO DE DEPURACION (SOLICITADO POR MONITOR) ---");
+    if (g_pHeader && g_pBuffer) {
+        snprintf(buf, sizeof(buf), "  > Sensores activos : %ld", g_pHeader->activeSensors);
+        Log(buf);
+        snprintf(buf, sizeof(buf), "  > Eventos en Buffer: %ld / %ld", g_pBuffer->count, g_pBuffer->maxSize);
+        Log(buf);
+        snprintf(buf, sizeof(buf), "  > Indice Head (Lectura) : %ld", g_pBuffer->head);
+        Log(buf);
+        snprintf(buf, sizeof(buf), "  > Indice Tail (Escritura): %ld", g_pBuffer->tail);
+        Log(buf);
+    }
+    Log("-----------------------------------------------------");
+}
+
+/* ================================================================
+   HILO ESCUCHADOR DE EVENTOS DEL MONITOR (MODULO 4)
+   ================================================================ */
+
+static DWORD WINAPI MonitorListenerThread(LPVOID lpParam) {
+    (void)lpParam;
+    HANDLE handles[2] = { g_hEvtShutdown, g_hEvtDebug };
+
+    while (g_Running) {
+        DWORD waitRes = WaitForMultipleObjects(2, handles, FALSE, 1000);
+
+        if (waitRes == WAIT_OBJECT_0) {
+            Log("Recibida orden de apagado desde el Monitor (Modulo 4)");
+            ResetEvent(g_hEvtShutdown);
+            CreateThread(NULL, 0, ShutdownThread, NULL, 0, NULL);
+            break;
+        }
+        else if (waitRes == WAIT_OBJECT_0 + 1) {
+            ResetEvent(g_hEvtDebug);
+            DumpDebugInfo();
+        }
+    }
+    return 0;
 }
 
 /* ================================================================
@@ -121,6 +188,8 @@ static DWORD WINAPI ReceiverThread(LPVOID lpParam) {
             continue;
 
         WaitForSingleObject(g_hSemEmpty, INFINITE);
+        if (!g_Running) break;
+
         WaitForSingleObject(g_hMutex, INFINITE);
 
         g_pBuffer->events[g_pBuffer->tail] = evt;
@@ -148,13 +217,14 @@ static DWORD WINAPI ReceiverThread(LPVOID lpParam) {
    ================================================================ */
 
 static void Cleanup(void) {
+    if (g_hEvtShutdown) { CloseHandle(g_hEvtShutdown); g_hEvtShutdown = NULL; }
+    if (g_hEvtDebug) { CloseHandle(g_hEvtDebug);    g_hEvtDebug = NULL; }
+
     if (g_hMutex) {
-        ReleaseMutex(g_hMutex);
         CloseHandle(g_hMutex);
         g_hMutex = NULL;
     }
     if (g_hSemEmpty) {
-        ReleaseSemaphore(g_hSemEmpty, BUFFER_SIZE, NULL);
         CloseHandle(g_hSemEmpty);
         g_hSemEmpty = NULL;
     }
@@ -183,7 +253,13 @@ static DWORD WINAPI ShutdownThread(LPVOID lpParam) {
 
     InterlockedExchange(&g_Running, 0);
 
-    ReleaseSemaphore(g_hSemEmpty, MAX_CLIENTS, NULL);
+    /* Notificar al Módulo 3 (Dispatcher) */
+    if (g_pHeader) {
+        g_pHeader->running = 0;
+    }
+
+    /* Destrabar semáforos si hay hilos esperando */
+    ReleaseSemaphore(g_hSemFull, 1, NULL);
 
     for (long i = 0; i < g_SensorCount; i++) {
         if (g_hPipes[i] != INVALID_HANDLE_VALUE)
@@ -192,7 +268,7 @@ static DWORD WINAPI ShutdownThread(LPVOID lpParam) {
 
     for (long i = 0; i < g_SensorCount; i++) {
         if (g_hThreads[i]) {
-            WaitForSingleObject(g_hThreads[i], 5000);
+            WaitForSingleObject(g_hThreads[i], 2000);
             CloseHandle(g_hThreads[i]);
         }
     }
@@ -217,7 +293,7 @@ static DWORD WINAPI ShutdownThread(LPVOID lpParam) {
 
 static BOOL WINAPI ConsoleHandler(DWORD event) {
     if (event == CTRL_C_EVENT || event == CTRL_BREAK_EVENT) {
-        Log("Senal de apagado recibida...");
+        Log("Senal de apagado recibida por teclado...");
         CreateThread(NULL, 0, ShutdownThread, NULL, 0, NULL);
         return TRUE;
     }
@@ -233,13 +309,16 @@ int main(void) {
 
     for (int i = 0; i < MAX_CLIENTS; i++) {
         g_hThreads[i] = NULL;
-        g_hPipes[i]   = INVALID_HANDLE_VALUE;
+        g_hPipes[i] = INVALID_HANDLE_VALUE;
     }
 
     Log("Iniciando Broker...");
 
     if (!InitSharedMemory()) { Cleanup(); return 1; }
-    if (!InitSyncObjects())  { Cleanup(); return 1; }
+    if (!InitSyncObjects()) { Cleanup(); return 1; }
+
+    /* Crear hilo para responder al Monitor */
+    g_hMonitorThread = CreateThread(NULL, 0, MonitorListenerThread, NULL, 0, NULL);
 
     Log("Broker listo. Esperando sensores...");
 
@@ -255,6 +334,7 @@ int main(void) {
             NULL);
 
         if (hPipe == INVALID_HANDLE_VALUE) {
+            if (!g_Running) break;
             Log("ERROR: CreateNamedPipe fallo");
             break;
         }
@@ -279,7 +359,7 @@ int main(void) {
             continue;
         }
 
-        g_hPipes[slot]   = hPipe;
+        g_hPipes[slot] = hPipe;
         g_hThreads[slot] = CreateThread(
             NULL, 0, ReceiverThread, (LPVOID)(INT_PTR)slot, 0, NULL);
 
@@ -289,7 +369,8 @@ int main(void) {
             g_hPipes[slot] = INVALID_HANDLE_VALUE;
             InterlockedDecrement(&g_SensorCount);
             Log("ERROR: CreateThread fallo");
-        } else {
+        }
+        else {
             Log("Sensor conectado");
         }
     }
